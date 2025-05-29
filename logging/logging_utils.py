@@ -5,6 +5,7 @@ import json
 from colorama import Back, Fore, Style
 from pathlib import Path
 from typing import Dict
+import uuid
 
 logs_filename = "logs.json"
 
@@ -74,6 +75,7 @@ def append_log(new_log):
             logs = []
 
         log_json = {
+            "id": str(uuid.uuid4()),
             "timestamp": new_log.asctime,
             "milliseconds": new_log.msecs,
             "levelname": new_log.levelname,

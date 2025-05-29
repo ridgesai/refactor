@@ -32,6 +32,7 @@ from validator.config import (
 from validator.evaluation.evaluation_loop import run_evaluation_loop
 from validator.utils.async_utils import AsyncBarrier
 from validator.evaluation.set_weights import set_weights
+from validator.utils.data_sending import send_data_to_ridges
 
 project_root = str(Path(__file__).resolve().parents[2])
 sys.path.append(project_root)
@@ -243,6 +244,14 @@ async def main():
         cleanup_task = asyncio.create_task(periodic_cleanup(db_manager))
         cleanup_task.add_done_callback(
             lambda t: logger.error(f"Cleanup task ended unexpectedly: {t.exception()}")
+            if t.exception() else None
+        )
+
+        # Start the data sending task
+        logger.info("Starting data sending task...")
+        data_sending_task = asyncio.create_task(send_data_to_ridges())
+        data_sending_task.add_done_callback(
+            lambda t: logger.error(f"Data sending task ended unexpectedly: {t.exception()}")
             if t.exception() else None
         )
 
