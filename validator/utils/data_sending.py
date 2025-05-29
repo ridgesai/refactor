@@ -168,4 +168,5 @@ async def send_data_to_ridges():
             logger.error(f"Error sending responses to API: {str(e)}")
 
         # Sleep for DATA_SENDING_INTERVAL
+        logging_update_active_coroutines("data_sending_task", False)
         await asyncio.sleep(DATA_SENDING_INTERVAL.total_seconds())
