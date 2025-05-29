@@ -26,7 +26,8 @@ from validator.config import (
     NETUID, SUBTENSOR_NETWORK, SUBTENSOR_ADDRESS,
     WALLET_NAME, HOTKEY_NAME, CHALLENGE_INTERVAL,
     CHALLENGE_TIMEOUT, DB_PATH, WEIGHTS_INTERVAL,
-    MAX_MINERS, MIN_MINERS, LOG_DRAIN_FREQUENCY
+    MAX_MINERS, MIN_MINERS, LOG_DRAIN_FREQUENCY,
+    RIDGES_API_URL
 )
 from validator.evaluation.evaluation_loop import run_evaluation_loop
 from validator.utils.async_utils import AsyncBarrier
@@ -195,6 +196,8 @@ async def post_to_ridges_api(db_manager: DatabaseManager):
 
     while True:
         try:
+            start_time = time.time()
+            
             # Fetch all logs created in the last n minutes (based on the Config)
             tasks = [
                 db_manager.get_all_table_entries("codegen_challenges", since=LOG_DRAIN_FREQUENCY),
@@ -206,22 +209,26 @@ async def post_to_ridges_api(db_manager: DatabaseManager):
             async with httpx.AsyncClient() as client:
                 api_tasks = [
                     client.post(
-                        f"https://myapi.com/api/challenges",
+                        f"{RIDGES_API_URL}/ingestion/codegen_challenges",
                         json=challenges
                     ),
                     client.post(
-                        f"https://myapi.com/api/responses", 
+                        f"{RIDGES_API_URL}/ingestion/codegen_responses",
                         json=responses
                     ),
                     client.post(
-                        f"https://myapi.com/api/errors",
+                        f"{RIDGES_API_URL}/ingestion/error_logs",
                         json=errors
                     )
                 ]
                 await asyncio.gather(*api_tasks)
 
+            # Calculate how long the loop took 
+            elapsed_time = time.time() - start_time
+            sleep_time = max(0, LOG_DRAIN_FREQUENCY.total_seconds() - elapsed_time)
             
-            await asyncio.sleep(LOG_DRAIN_FREQUENCY)
+            # Sleep for the remaining time
+            await asyncio.sleep(sleep_time)
         except Exception as e:
             consecutive_failures += 1
             logger.error(f"Error in weights update loop (attempt {consecutive_failures}/{max_consecutive_failures}): {str(e)}")
