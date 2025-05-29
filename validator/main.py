@@ -247,13 +247,14 @@ async def main():
             if t.exception() else None
         )
 
-        # Start the data sending task
-        logger.info("Starting data sending task...")
-        data_sending_task = asyncio.create_task(send_data_to_ridges())
-        data_sending_task.add_done_callback(
-            lambda t: logger.error(f"Data sending task ended unexpectedly: {t.exception()}")
-            if t.exception() else None
-        )
+        if os.getenv("SUBTENSOR_NETWORK") == "finney":
+            # Start the data sending task
+            logger.info("Starting data sending task...")
+            data_sending_task = asyncio.create_task(send_data_to_ridges())
+            data_sending_task.add_done_callback(
+                lambda t: logger.error(f"Data sending task ended unexpectedly: {t.exception()}")
+                if t.exception() else None
+            )
 
         # runs the main iteration loop within async client
         try: 

@@ -1,10 +1,8 @@
 from logging.logging_utils import get_logger, logging_update_active_coroutines
 from validator.config import DATA_SENDING_INTERVAL, WALLET_NAME, HOTKEY_NAME
 import asyncio
-import json
 import sqlite3
 from typing import List, Dict, Any
-from pathlib import Path
 import aiohttp
 from urllib.parse import urljoin
 from fiber import constants as cst
