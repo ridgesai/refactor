@@ -3,11 +3,8 @@ import os
 import sys
 import json
 from colorama import Back, Fore, Style
-from pathlib import Path
-from typing import Dict
 import uuid
-
-logs_filename = "logs.json"
+import sqlite3
 
 # Global set to store active coroutines
 active_coroutines = set()
@@ -53,54 +50,91 @@ class ColoredFormatter(logging.Formatter):
 
         return message
 
-def get_logs_file():
-    return Path(__file__).parents[0] / logs_filename
 
-def clear_logs():
-    """Clear all logs by resetting logs.json to an empty array."""
-    log_file = get_logs_file()
-    try:
-        with open(log_file, 'w') as f:
-            json.dump([], f)
-    except Exception as e:
-        print(f"Error clearing log file: {e}")
 
-def append_log(new_log):
-    log_file = get_logs_file()
-    try:
-        if log_file.exists():
-            with open(log_file, 'r') as f:
-                logs = json.load(f)
-        else:
-            logs = []
+class DatabaseHandler(logging.Handler):
+    def __init__(self, db_path: str, max_rows: int = 1000):
+        super().__init__()
+        self.db_path = db_path
+        self.max_rows = max_rows
+        self._ensure_table_exists()
+    
+    def _ensure_table_exists(self):
+        """Create the logs table if it doesn't exist."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS logs (
+                    id TEXT PRIMARY KEY,
+                    timestamp TEXT,
+                    milliseconds REAL,
+                    levelname TEXT,
+                    filename TEXT,
+                    pathname TEXT,
+                    funcName TEXT,
+                    lineno INTEGER,
+                    message TEXT,
+                    active_coroutines TEXT,
+                    eval_loop_num INTEGER
+                )
+            """)
+            conn.commit()
 
-        log_json = {
-            "id": str(uuid.uuid4()),
-            "timestamp": new_log.asctime,
-            "milliseconds": new_log.msecs,
-            "levelname": new_log.levelname,
-            "filename": new_log.name,
-            "pathname": new_log.pathname,
-            "funcName": new_log.funcName,
-            "lineno": new_log.lineno,
-            "message": new_log.message,
-            "active_coroutines": list(active_coroutines),
-            "eval_loop_num": eval_loop_num
-        }
-        
-        logs.append(log_json)
-        
-        # Keep only last 1000 logs to prevent file from growing too large
-        logs = logs[-1000:]
-        
-        with open(log_file, 'w') as f:
-            json.dump(logs, f)
-    except Exception as e:
-        print(f"Error writing to log file: {e}")
+    def _cleanup_old_logs(self, conn):
+        """Delete oldest logs if we exceed max_rows."""
+        conn.execute("""
+            DELETE FROM logs 
+            WHERE id IN (
+                SELECT id FROM logs 
+                ORDER BY timestamp ASC, milliseconds ASC 
+                LIMIT MAX(0, (SELECT COUNT(*) FROM logs) - ?)
+            )
+        """, (self.max_rows,))
+        conn.commit()
 
-class FileHandler(logging.Handler):
     def emit(self, record):
-        append_log(record)
+        try:
+            with sqlite3.connect(self.db_path) as conn:
+                # Strip ANSI codes from levelname
+                levelname = record.levelname
+                levelname = levelname.replace('\u001b[32m', '')  # Green
+                levelname = levelname.replace('\u001b[33m', '')  # Yellow
+                levelname = levelname.replace('\u001b[31m', '')  # Red
+                levelname = levelname.replace('\u001b[36m', '')  # Cyan
+                levelname = levelname.replace('\u001b[1m', '')   # Bold
+                levelname = levelname.replace('\u001b[0m', '')   # Reset
+                
+                log_json = {
+                    "id": str(uuid.uuid4()),
+                    "timestamp": record.asctime,
+                    "milliseconds": record.msecs,
+                    "levelname": levelname,
+                    "filename": record.name,
+                    "pathname": record.pathname,
+                    "funcName": record.funcName,
+                    "lineno": record.lineno,
+                    "message": record.message,
+                    "active_coroutines": json.dumps(list(active_coroutines)),
+                    "eval_loop_num": eval_loop_num
+                }
+                
+                conn.execute("""
+                    INSERT INTO logs (
+                        id, timestamp, milliseconds, levelname, filename, 
+                        pathname, funcName, lineno, message, active_coroutines, eval_loop_num
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    log_json["id"], log_json["timestamp"], log_json["milliseconds"],
+                    log_json["levelname"], log_json["filename"], log_json["pathname"],
+                    log_json["funcName"], log_json["lineno"], log_json["message"],
+                    log_json["active_coroutines"], log_json["eval_loop_num"]
+                ))
+                
+                # Clean up old logs if we exceed max_rows
+                self._cleanup_old_logs(conn)
+                
+                conn.commit()
+        except Exception as e:
+            print(f"Error writing to database: {e}")
 
 def get_logger(name: str):
     logger = logging.getLogger(name.split(".")[-1])
@@ -124,9 +158,9 @@ def get_logger(name: str):
     console_handler.setFormatter(colored_formatter)
     logger.addHandler(console_handler)
 
-    file_handler = FileHandler()
-    file_handler.setFormatter(colored_formatter)
-    logger.addHandler(file_handler)
+    # Add database handler with max 1000 rows
+    db_handler = DatabaseHandler("logs.db", max_rows=1000)
+    logger.addHandler(db_handler)
 
     logger.debug(f"Logging mode is {logging.getLevelName(logger.getEffectiveLevel())}")
     return logger

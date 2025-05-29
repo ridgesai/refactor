@@ -1,4 +1,4 @@
-from logging.logging_utils import get_logger, logging_update_active_coroutines, get_logs_file
+from logging.logging_utils import get_logger, logging_update_active_coroutines
 from validator.config import DATA_SENDING_INTERVAL, WALLET_NAME, HOTKEY_NAME
 import asyncio
 import json
@@ -29,18 +29,17 @@ def get_validator_hotkey() -> str:
         logger.error(f"Failed to load validator hotkey: {str(e)}")
         raise
 
-def get_db_connection() -> sqlite3.Connection:
+def get_db_connection(db_path: str) -> sqlite3.Connection:
     """Get a connection to the validator database."""
-    db_path = Path("validator.db")
     return sqlite3.connect(db_path)
 
-def fetch_table_data(table_name: str) -> List[Dict[str, Any]]:
+def fetch_table_data(table_name: str, db_path: str) -> List[Dict[str, Any]]:
     """
     Fetch all rows from a given table and return them as a list of dictionaries.
     Each dictionary represents a row with column names as keys.
     """
     try:
-        conn = get_db_connection()
+        conn = get_db_connection(db_path)
         cursor = conn.cursor()
         
         # Get column names
@@ -69,21 +68,25 @@ def fetch_table_data(table_name: str) -> List[Dict[str, Any]]:
         if 'conn' in locals():
             conn.close()
 
+def get_logs() -> List[Dict[str, Any]]:
+    """Fetch all logs."""
+    return fetch_table_data('logs', 'logs.db')
+
 def get_availability_checks() -> List[Dict[str, Any]]:
     """Fetch all availability checks."""
-    return fetch_table_data('availability_checks')
+    return fetch_table_data('availability_checks', 'validator.db')
 
 def get_challenge_assignments() -> List[Dict[str, Any]]:
-    """Fetch all challenge assignments."""
-    return fetch_table_data('challenge_assignments')
+    """Fetch all challenge assignments.""" 
+    return fetch_table_data('challenge_assignments', 'validator.db')
 
 def get_codegen_challenges() -> List[Dict[str, Any]]:
     """Fetch all codegen challenges."""
-    return fetch_table_data('codegen_challenges')
+    return fetch_table_data('codegen_challenges', 'validator.db')
 
 def get_responses() -> List[Dict[str, Any]]:
     """Fetch all responses."""
-    return fetch_table_data('responses')
+    return fetch_table_data('responses', 'validator.db')
 
 async def send_data_to_api(data: Dict[str, Any], endpoint: str) -> bool:
     """
@@ -113,10 +116,8 @@ async def send_data_to_ridges():
 
         # Send logs
         try: 
-            logs_file_path = get_logs_file()
-            with open(logs_file_path, 'r') as f:
-                logs_json = json.load(f)
-            success = await send_data_to_api(logs_json, LOGS_API_ENDPOINT)
+            logs = get_logs()
+            success = await send_data_to_api(logs, LOGS_API_ENDPOINT)
             if success:
                 logger.info(f"Logs sent to API successfully")
             else:
