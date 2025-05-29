@@ -1,90 +1,17 @@
-from logging.logging_utils import get_logger, logging_update_active_coroutines
-from validator.config import DATA_SENDING_INTERVAL, WALLET_NAME, HOTKEY_NAME
+from typing import List, Dict, Any
 import asyncio
 import sqlite3
-from typing import List, Dict, Any
+
 import aiohttp
 from urllib.parse import urljoin
 from fiber import constants as cst
 from fiber.chain.chain_utils import load_hotkey_keypair
 
+from validator.utils.logging import get_logger, logging_update_active_coroutines
+from validator.config import DATA_SENDING_INTERVAL, WALLET_NAME, HOTKEY_NAME
+
 logger = get_logger(__name__)
 
-# API Configuration
-API_BASE_URL = "http://localhost:8000"
-LOGS_API_ENDPOINT = "/logs"
-AVAILABILITY_CHECKS_API_ENDPOINT = "/availability-checks"
-CHALLENGE_ASSIGNMENTS_API_ENDPOINT = "/challenge-assignments"
-CODEGEN_CHALLENGES_API_ENDPOINT = "/codegen-challenges"
-RESPONSES_API_ENDPOINT = "/responses"
-
-def get_validator_hotkey() -> str:
-    """Get the validator's hotkey."""
-    try:
-        keypair = load_hotkey_keypair(WALLET_NAME, HOTKEY_NAME)
-        return keypair.ss58_address
-    except Exception as e:
-        logger.error(f"Failed to load validator hotkey: {str(e)}")
-        raise
-
-def get_db_connection(db_path: str) -> sqlite3.Connection:
-    """Get a connection to the validator database."""
-    return sqlite3.connect(db_path)
-
-def fetch_table_data(table_name: str, db_path: str) -> List[Dict[str, Any]]:
-    """
-    Fetch all rows from a given table and return them as a list of dictionaries.
-    Each dictionary represents a row with column names as keys.
-    """
-    try:
-        conn = get_db_connection(db_path)
-        cursor = conn.cursor()
-        
-        # Get column names
-        cursor.execute(f"PRAGMA table_info({table_name})")
-        columns = [col[1] for col in cursor.fetchall()]
-        
-        # Fetch all rows
-        cursor.execute(f"SELECT * FROM {table_name}")
-        rows = cursor.fetchall()
-        
-        # Convert rows to dictionaries
-        result = []
-        for row in rows:
-            row_dict = dict(zip(columns, row))
-            # Convert any bytes objects to strings
-            for key, value in row_dict.items():
-                if isinstance(value, bytes):
-                    row_dict[key] = value.decode('utf-8')
-            result.append(row_dict)
-            
-        return result
-    except Exception as e:
-        logger.error(f"Error fetching data from {table_name}: {str(e)}")
-        return []
-    finally:
-        if 'conn' in locals():
-            conn.close()
-
-def get_logs() -> List[Dict[str, Any]]:
-    """Fetch all logs."""
-    return fetch_table_data('logs', 'logs.db')
-
-def get_availability_checks() -> List[Dict[str, Any]]:
-    """Fetch all availability checks."""
-    return fetch_table_data('availability_checks', 'validator.db')
-
-def get_challenge_assignments() -> List[Dict[str, Any]]:
-    """Fetch all challenge assignments.""" 
-    return fetch_table_data('challenge_assignments', 'validator.db')
-
-def get_codegen_challenges() -> List[Dict[str, Any]]:
-    """Fetch all codegen challenges."""
-    return fetch_table_data('codegen_challenges', 'validator.db')
-
-def get_responses() -> List[Dict[str, Any]]:
-    """Fetch all responses."""
-    return fetch_table_data('responses', 'validator.db')
 
 async def send_data_to_api(data: Dict[str, Any], endpoint: str) -> bool:
     """
@@ -103,6 +30,7 @@ async def send_data_to_api(data: Dict[str, Any], endpoint: str) -> bool:
                 else:
                     return False
     except Exception as e:
+        logger.error(f"Error sending data to Ridges API: {str(e)}")
         return False
 
 async def send_data_to_ridges():

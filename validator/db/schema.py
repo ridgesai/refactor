@@ -67,6 +67,21 @@ def get_schema_v1() -> List[str]:
             error TEXT
         )
         """,
+
+        # Error Log Drain
+        """
+            CREATE TABLE IF NOT EXISTS error_logs (
+                id TEXT PRIMARY KEY,
+                timestamp TEXT,
+                filename TEXT,
+                pathname TEXT,
+                funcName TEXT,
+                lineno INTEGER,
+                message TEXT,
+                active_coroutines TEXT,
+                eval_loop_num INTEGER
+            )
+        """
     ]
 
 def check_db_initialized(db_path: str) -> bool:

@@ -1,6 +1,6 @@
 from itertools import combinations
 from logging import Logger
-from logging.logging_utils import get_logger
+from validator.utils.logging import get_logger
 import os
 import random
 from textwrap import dedent

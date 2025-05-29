@@ -28,7 +28,6 @@ MIN_FILES_IN_DIR_TO_GENERATE_PROBLEM = 3
 MIN_FILE_CONTENT_LEN_CHARS = 50
 
 WEIGHTS_INTERVAL = timedelta(minutes=30)
-DATA_SENDING_INTERVAL = timedelta(minutes=0.25)
 VALIDATION_DELAY = timedelta(minutes=1)
 ALPHA_SCORING_MULTIPLICATOR = 3
 MOCK_RESPONSES = False
@@ -43,6 +42,8 @@ PREFERRED_OPENAI_MODEL = "gpt-4.1-mini"
 
 # Logging
 LOG_LEVEL = os.getenv("LOG_LEVEL", "DEBUG")
+RIDGES_API_URL = "https://api.ridges.ai"
+LOG_DRAIN_FREQUENCY = timedelta(minutes=10)
 
 # Log initial configuration
 import logging

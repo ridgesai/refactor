@@ -2,7 +2,6 @@
 from pathlib import Path
 import sys 
 import time
-from typing import Optional
 import random
 import os
 import asyncio
@@ -22,17 +21,17 @@ from validator.db.operations import DatabaseManager
 from validator.challenge.challenge_types import ChallengeTask
 from validator.challenge.create_codegen_challenge import create_next_codegen_challenge
 from validator.challenge.send_codegen_challenge import send_challenge
-from logging.logging_utils import get_logger, logging_update_active_coroutines
+from validator.utils.logging import get_logger, logging_update_active_coroutines
 from validator.config import (
     NETUID, SUBTENSOR_NETWORK, SUBTENSOR_ADDRESS,
     WALLET_NAME, HOTKEY_NAME, CHALLENGE_INTERVAL,
     CHALLENGE_TIMEOUT, DB_PATH, WEIGHTS_INTERVAL,
-    MAX_MINERS, MIN_MINERS
+    MAX_MINERS, MIN_MINERS, LOG_DRAIN_FREQUENCY
 )
 from validator.evaluation.evaluation_loop import run_evaluation_loop
 from validator.utils.async_utils import AsyncBarrier
 from validator.evaluation.set_weights import set_weights
-from validator.utils.data_sending import send_data_to_ridges
+from validator.utils.api import send_data_to_ridges
 
 project_root = str(Path(__file__).resolve().parents[2])
 sys.path.append(project_root)
@@ -188,9 +187,54 @@ async def weights_update_loop(db_manager: DatabaseManager) -> None:
                 logging_update_active_coroutines("weights_task", False)
                 await asyncio.sleep(WEIGHTS_INTERVAL.total_seconds())
 
-async def periodic_cleanup(db_manager: DatabaseManager, interval_hours: int = 24):
-    logger.info("Not cleaning anything up until push to main db instance implemented")
-    return 
+async def post_to_ridges_api(db_manager: DatabaseManager):
+    # TODO: Post data with fiber to show validator signature
+    logger.info("Starting Ridges API drain loop")
+    consecutive_failures = 0
+    max_consecutive_failures = 3
+
+    while True:
+        try:
+            # Fetch all logs created in the last n minutes (based on the Config)
+            tasks = [
+                db_manager.get_all_table_entries("codegen_challenges", since=LOG_DRAIN_FREQUENCY),
+                db_manager.get_all_table_entries("responses", since=LOG_DRAIN_FREQUENCY), 
+                db_manager.get_all_table_entries("error_logs", since=LOG_DRAIN_FREQUENCY)
+            ]
+            challenges, responses, errors = await asyncio.gather(*tasks)
+
+            async with httpx.AsyncClient() as client:
+                api_tasks = [
+                    client.post(
+                        f"https://myapi.com/api/challenges",
+                        json=challenges
+                    ),
+                    client.post(
+                        f"https://myapi.com/api/responses", 
+                        json=responses
+                    ),
+                    client.post(
+                        f"https://myapi.com/api/errors",
+                        json=errors
+                    )
+                ]
+                await asyncio.gather(*api_tasks)
+
+            
+            await asyncio.sleep(LOG_DRAIN_FREQUENCY)
+        except Exception as e:
+            consecutive_failures += 1
+            logger.error(f"Error in weights update loop (attempt {consecutive_failures}/{max_consecutive_failures}): {str(e)}")
+            
+            if consecutive_failures >= max_consecutive_failures:
+                logger.error("Too many consecutive failures in weights update loop, waiting for longer period")
+                logging_update_active_coroutines("weights_task", False)
+                await asyncio.sleep(WEIGHTS_INTERVAL.total_seconds() * 2)  # Wait twice as long before retrying
+                consecutive_failures = 0  # Reset counter after long wait
+            else:
+                # Wait normal interval before retry
+                logging_update_active_coroutines("weights_task", False)
+                await asyncio.sleep(WEIGHTS_INTERVAL.total_seconds())
 
 async def main():
     """Main validator loop."""
@@ -239,11 +283,11 @@ async def main():
             if t.exception() else None
         )
     
-        # Start the periodic cleanup task
-        logger.info("Starting cleanup task...")
-        cleanup_task = asyncio.create_task(periodic_cleanup(db_manager))
-        cleanup_task.add_done_callback(
-            lambda t: logger.error(f"Cleanup task ended unexpectedly: {t.exception()}")
+        # Start a task to periodically push non sensitive data to Ridges for the dashboard
+        logger.info("Starting Ridges API task...")
+        api_drain_task = asyncio.create_task(send_data_to_ridges(db_manager))
+        api_drain_task.add_done_callback(
+            lambda t: logger.error(f"Ridges API task ended unexpectedly: {t.exception()}")
             if t.exception() else None
         )
 
@@ -267,7 +311,7 @@ async def main():
                     logger.info(f"Main loop iteration {iteration}")
 
                     # Check if any background tasks failed
-                    for task in [evaluation_task, weights_task, cleanup_task]:
+                    for task in [evaluation_task, weights_task, api_drain_task]:
                         if task.done() and not task.cancelled():
                             exc = task.exception()
                             if exc:
@@ -286,9 +330,9 @@ async def main():
                                 elif task == weights_task:
                                     logger.info("Restarting weights update loop...")
                                     weights_task = asyncio.create_task(weights_update_loop(db_manager))
-                                elif task == cleanup_task:
-                                    logger.info("Restarting cleanup task...")
-                                    cleanup_task = asyncio.create_task(periodic_cleanup(db_manager))
+                                elif task == api_drain_task:
+                                    logger.info("Restarting Ridges API drain task...")
+                                    api_drain_task = asyncio.create_task(send_data_to_ridges(db_manager))
                     
                     # Clean up completed challenge tasks
                     active_challenge_tasks = [
@@ -337,7 +381,7 @@ async def main():
                     logger.info("Background task status:")
                     logger.info(f"  - Evaluation task running: {not evaluation_task.done()}")
                     logger.info(f"  - Weights task running: {not weights_task.done()}")
-                    logger.info(f"  - Cleanup task running: {not cleanup_task.done()}")
+                    logger.info(f"  - API drain task running: {not api_drain_task.done()}")
 
                     for node in available_nodes:
                         server_address = await construct_server_address(node)
@@ -385,9 +429,9 @@ async def main():
             # Cancel evaluation and weights loops
             evaluation_task.cancel()
             weights_task.cancel()
-            cleanup_task.cancel()
+            api_drain_task.cancel()
             try:
-                await asyncio.gather(evaluation_task, weights_task, cleanup_task, return_exceptions=True)
+                await asyncio.gather(evaluation_task, weights_task, api_drain_task, return_exceptions=True)
             except asyncio.CancelledError:
                 pass
         
