@@ -32,7 +32,6 @@ from validator.config import (
 from validator.evaluation.evaluation_loop import run_evaluation_loop
 from validator.utils.async_utils import AsyncBarrier
 from validator.evaluation.set_weights import set_weights
-from validator.utils.api import send_data_to_ridges
 
 project_root = str(Path(__file__).resolve().parents[2])
 sys.path.append(project_root)
@@ -202,10 +201,10 @@ async def post_to_ridges_api(db_manager: DatabaseManager):
             tasks = [
                 db_manager.get_all_table_entries("codegen_challenges", since=LOG_DRAIN_FREQUENCY),
                 db_manager.get_all_table_entries("responses", since=LOG_DRAIN_FREQUENCY), 
-                db_manager.get_all_table_entries("error_logs", since=LOG_DRAIN_FREQUENCY)
             ]
-            challenges, responses, errors = await asyncio.gather(*tasks)
+            challenges, responses = await asyncio.gather(*tasks)
 
+            logger.info(f"Fetched {len(challenges)} challenges, {len(responses)} from database. Preparing to post to Ridges API")
             async with httpx.AsyncClient() as client:
                 api_tasks = [
                     client.post(
@@ -216,10 +215,6 @@ async def post_to_ridges_api(db_manager: DatabaseManager):
                         f"{RIDGES_API_URL}/ingestion/codegen_responses",
                         json=responses
                     ),
-                    client.post(
-                        f"{RIDGES_API_URL}/ingestion/error_logs",
-                        json=errors
-                    )
                 ]
                 await asyncio.gather(*api_tasks)
 
@@ -292,7 +287,7 @@ async def main():
     
         # Start a task to periodically push non sensitive data to Ridges for the dashboard
         logger.info("Starting Ridges API task...")
-        api_drain_task = asyncio.create_task(send_data_to_ridges(db_manager))
+        api_drain_task = asyncio.create_task(post_to_ridges_api(db_manager))
         api_drain_task.add_done_callback(
             lambda t: logger.error(f"Ridges API task ended unexpectedly: {t.exception()}")
             if t.exception() else None
@@ -301,7 +296,7 @@ async def main():
         if os.getenv("SUBTENSOR_NETWORK") == "finney":
             # Start the data sending task
             logger.info("Starting data sending task...")
-            data_sending_task = asyncio.create_task(send_data_to_ridges())
+            data_sending_task = asyncio.create_task(post_to_ridges_api())
             data_sending_task.add_done_callback(
                 lambda t: logger.error(f"Data sending task ended unexpectedly: {t.exception()}")
                 if t.exception() else None
@@ -339,7 +334,7 @@ async def main():
                                     weights_task = asyncio.create_task(weights_update_loop(db_manager))
                                 elif task == api_drain_task:
                                     logger.info("Restarting Ridges API drain task...")
-                                    api_drain_task = asyncio.create_task(send_data_to_ridges(db_manager))
+                                    api_drain_task = asyncio.create_task(post_to_ridges_api(db_manager))
                     
                     # Clean up completed challenge tasks
                     active_challenge_tasks = [

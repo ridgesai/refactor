@@ -4,9 +4,6 @@ import sys
 
 from colorama import Back, Fore, Style
 
-from validator.db.operations import DatabaseManager
-from validator.config import DB_PATH
-
 # Global set to store active coroutines
 active_coroutines = set()
 
@@ -51,14 +48,6 @@ class ColoredFormatter(logging.Formatter):
 
         return message
 
-class LoggingDatabaseHandler(logging.Handler):
-    def __init__(self, db_manager: DatabaseManager):
-        super().__init__()
-        self.db_manager = db_manager
-
-    def emit(self, record):
-        self.db_manager.create_error_log(record)
-
 def get_logger(name: str):
     logger = logging.getLogger(name.split(".")[-1])
     mode: str = os.getenv("ENV", "prod").lower()
@@ -80,10 +69,6 @@ def get_logger(name: str):
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setFormatter(colored_formatter)
     logger.addHandler(console_handler)
-
-    # This also spins up a miner copy of validator.db database, but its purely a log drain and so OK
-    db_handler = LoggingDatabaseHandler(DatabaseManager(DB_PATH))
-    logger.addHandler(db_handler)
 
     logger.debug(f"Logging mode is {logging.getLevelName(logger.getEffectiveLevel())}")
     return logger

@@ -460,35 +460,6 @@ class DatabaseManager:
             cursor.close()
             conn.close()
 
-    def create_error_log(self, log: LogRecord):
-        """Stores error logs into the validator database"""
-        conn = self.get_connection()
-        cursor = conn.cursor()
-
-        try: 
-            conn.execute("""
-                INSERT INTO error_logs (
-                    id, timestamp, filename, pathname, funcName, 
-                    lineno, message, active_coroutines, eval_loop_num
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                log["id"], log["timestamp"], log["filename"], log["pathname"],
-                log["funcName"], log["lineno"], log["message"],
-                log["active_coroutines"], log["eval_loop_num"]
-            ))
-
-            conn.commit()
-
-        except Exception as e:
-            conn.rollback()
-            # Don't log the error and recursively fail if there is a fatal bug.
-            print(f"Error saving error log to database: {str(e)}")
-
-        finally:
-            cursor.close()
-            conn.close()
-
-
     def get_global_miner_scores(self, hours: int = 24) -> Tuple[float, int]:
         """Gets the average score for all miners and average number of responses for each miner over the last n hours"""
         conn = self.get_connection()
@@ -552,7 +523,6 @@ class DatabaseManager:
         TABLE_TO_DATETIME_MAP = {
             "codegen_challenges": "created_at",
             "responses": "received_at",
-            "error_logs": "timestamp"
         }
 
         try:
