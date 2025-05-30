@@ -1,7 +1,7 @@
 import json
 import os
 
-from logging.logging_utils import get_logger
+from fiber.logging_utils import get_logger
 from fastapi import APIRouter, Depends, Request, HTTPException
 
 from miner.dependancies import blacklist_low_stake, verify_request, get_config
@@ -94,6 +94,6 @@ router.add_api_route(
     process_challenge,
     tags=["codegen"],
     # Commnent out dependencies for testing
-    dependencies=[Depends(verify_request)],
+    # dependencies=[Depends(verify_request)],
     methods=["POST"],
 )

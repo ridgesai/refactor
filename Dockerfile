@@ -46,7 +46,12 @@ RUN python3.11 -m pip install --upgrade pip uv && \
     uv pip install -e /app && \
     uv pip install bittensor-cli && \
     if [ -d /app/deps/btcli ]; then uv pip install -e /app/deps/btcli; fi && \
-    if [ -d /app/deps/bittensor ]; then uv pip install -e /app/deps/bittensor; fi
+    if [ -d /app/deps/bittensor ]; then uv pip install -e /app/deps/bittensor; fi && \
+    pip install git+https://github.com/SWE-agent/SWE-agent.git && \
+    git clone https://github.com/SWE-agent/SWE-agent.git /tmp/swe-agent && \
+    cp -r /tmp/swe-agent/config /app/venv/lib/python3.11/site-packages/ && \
+    cp -r /tmp/swe-agent/tools /app/venv/lib/python3.11/site-packages/ && \
+    cp -r /tmp/swe-agent/trajectories /app/venv/lib/python3.11/site-packages/
 
 ENV PATH="/app/venv/bin:${PATH}"
 

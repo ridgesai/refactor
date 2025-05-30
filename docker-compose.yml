@@ -37,6 +37,8 @@ services:
       - SUBTENSOR_ADDRESS=ws://subtensor:9945
       - WALLET_NAME=miner_ridges
       - HOTKEY_NAME=default_ridges
+      - SWE_AGENT_LOG_STREAM_LEVEL=DEBUG
+      - SWE_AGENT_LOG_TIME=1
     env_file:
       - ./miner/.env
     networks: [ridgesnet]
