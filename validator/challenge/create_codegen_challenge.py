@@ -290,21 +290,21 @@ async def create_next_codegen_challenge(
 
     logger.info(f'Generating new problem statement using files {[file.path for file in selected_pair.files]}')
 
-    # completion = openai_client.beta.chat.completions.parse(
-    #     model=PREFERRED_OPENAI_MODEL,
-    #     messages=[
-    #         {"role": "system", "content": prompt_with_filepair_context},
-    #         {"role": "user", "content": f"Generate the list of problem statements. Generate exactly 1 problem statement statements, no more and no less"},
-    #     ],
-    #     response_format=CodegenProblemLLMResponse,
-    # )
+    completion = openai_client.beta.chat.completions.parse(
+        model=PREFERRED_OPENAI_MODEL,
+        messages=[
+            {"role": "system", "content": prompt_with_filepair_context},
+            {"role": "user", "content": f"Generate the list of problem statements. Generate exactly 1 problem statement statements, no more and no less"},
+        ],
+        response_format=CodegenProblemLLMResponse,
+    )
 
-    # generated_problem: CodegenProblemLLMResponse = completion.choices[0].message.parsed
+    generated_problem: CodegenProblemLLMResponse = completion.choices[0].message.parsed
 
-    generated_problem = CodegenProblemLLMResponse.model_validate({
-        "problem_statement": "This is a sample problem statement",
-        "dynamic_checklist": ["checklist item 1", "checklist item 2"]
-    })
+    # generated_problem = CodegenProblemLLMResponse.model_validate({
+    #     "problem_statement": "This is a sample problem statement",
+    #     "dynamic_checklist": ["checklist item 1", "checklist item 2"]
+    # })
 
     problem_id = str(uuid.uuid4())
 

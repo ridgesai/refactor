@@ -9,7 +9,7 @@ from miner.core.config import Config
 from miner.utils.shared import miner_lock
 from miner.utils.git_ops import clone_and_checkout_repo
 from miner.utils.llm import generate_solution_with_openai
-from miner.utils.patch import generate_patch
+from miner.utils.patch import generate_patch, apply_patch
 
 logger = get_logger(__name__)
 
@@ -55,16 +55,26 @@ async def process_challenge(
             
             logger.info(f"Processing challenge {challenge_id} with problem statement {problem_statement}")
 
-            # Generate solution using OpenAI
+            # Generate solution using OpenAI (should be a patch/diff)
             logger.info("Generating solution using OpenAI...")
-            solution = generate_solution_with_openai(problem_statement, api_key)
-            logger.info(f"Generated solution: {solution}")
+            solution_patch = generate_solution_with_openai(problem_statement, api_key)
+            logger.info(f"Generated solution patch: {solution_patch}")
 
-            # Write solution to a new file in the cloned repo
-            solution_file = os.path.join(repo_path, "solution.py")
-            with open(solution_file, "w") as f:
-                f.write(solution)
-            logger.info(f"Solution written to {solution_file}")
+            # Post-process patch: ensure it ends with a single newline, no trailing whitespace, no extra blank lines
+            solution_patch = solution_patch.rstrip() + "\n"
+
+            # Validate patch format
+            if not solution_patch.strip().startswith("diff --git"):
+                logger.error("LLM output is not a valid git diff (patch). Output was: %s", solution_patch)
+                raise HTTPException(status_code=500, detail="LLM did not return a valid git diff (patch).")
+
+            # Apply the patch to the repo
+            try:
+                apply_patch(repo_path, solution_patch)
+                logger.info("Patch applied successfully.")
+            except Exception as e:
+                logger.error(f"Failed to apply patch: {e}")
+                raise HTTPException(status_code=500, detail=f"Failed to apply patch: {str(e)}")
 
             # Generate a git patch of the changes
             patch = generate_patch(repo_path)
