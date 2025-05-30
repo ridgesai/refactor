@@ -537,7 +537,16 @@ class DatabaseManager:
                 raise NotImplementedError(f"Provided table {table_name} does not have a table time field recorded. Please add this tables time field name to fetch all rows since a date.")
 
             cursor.execute(f"SELECT * FROM {table_name} WHERE datetime({time_field_name}) > datetime('now', '-{since.total_seconds()} seconds')")
-            return [dict(row) for row in cursor.fetchall()]
+            rows = cursor.fetchall()
+            columns = [col[0] for col in cursor.description]
+            
+            result = []
+            for row in rows:
+                row_dict = {}
+                for i in range(len(columns)):
+                    row_dict[columns[i]] = row[i]
+                result.append(row_dict)
+            return result
         
         except Exception as e:
             logger.error(f"Error getting table data: {str(e)}")

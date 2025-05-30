@@ -202,17 +202,18 @@ async def post_to_ridges_api(db_manager: DatabaseManager):
                 db_manager.get_all_table_entries("codegen_challenges", since=LOG_DRAIN_FREQUENCY),
                 db_manager.get_all_table_entries("responses", since=LOG_DRAIN_FREQUENCY), 
             ]
-            challenges, responses = await asyncio.gather(*tasks)
+            challenges = tasks[0]
+            responses = tasks[1]
 
             logger.info(f"Fetched {len(challenges)} challenges, {len(responses)} from database. Preparing to post to Ridges API")
             async with httpx.AsyncClient() as client:
                 api_tasks = [
                     client.post(
-                        f"{RIDGES_API_URL}/ingestion/codegen_challenges",
+                        f"{RIDGES_API_URL}/ingestion/codegen-challenges",
                         json=challenges
                     ),
                     client.post(
-                        f"{RIDGES_API_URL}/ingestion/codegen_responses",
+                        f"{RIDGES_API_URL}/ingestion/codegen-responses",
                         json=responses
                     ),
                 ]
@@ -223,6 +224,7 @@ async def post_to_ridges_api(db_manager: DatabaseManager):
             sleep_time = max(0, LOG_DRAIN_FREQUENCY.total_seconds() - elapsed_time)
             
             # Sleep for the remaining time
+            logger.info(f"Posted to Ridges API, sleeping for {sleep_time} seconds")
             await asyncio.sleep(sleep_time)
         except Exception as e:
             consecutive_failures += 1
@@ -292,15 +294,6 @@ async def main():
             lambda t: logger.error(f"Ridges API task ended unexpectedly: {t.exception()}")
             if t.exception() else None
         )
-
-        if os.getenv("SUBTENSOR_NETWORK") == "finney":
-            # Start the data sending task
-            logger.info("Starting data sending task...")
-            data_sending_task = asyncio.create_task(post_to_ridges_api())
-            data_sending_task.add_done_callback(
-                lambda t: logger.error(f"Data sending task ended unexpectedly: {t.exception()}")
-                if t.exception() else None
-            )
 
         # runs the main iteration loop within async client
         try: 
