@@ -157,6 +157,10 @@ async def set_weights(
         
         if success:
             logger.info("Successfully set weights on chain")
+
+            print("Miner weights:")
+            for node_id, weight, node in zip(node_ids, node_weights, nodes):
+                print(f"Node ID: {node_id}, Weight: {weight}, Hotkey: {node.hotkey}")
         else:
             logger.error("Failed to set weights on chain")
         

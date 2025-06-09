@@ -40,9 +40,10 @@ def solve_with_swe_agent(problem_text: str, repo_path: str) -> str:
     out_dir = tempfile.mkdtemp(prefix="sweagent_run_")
     cmd = [
         "sweagent", "run",
-        "--agent.model.name=claude-3-7-sonnet-latest",
+        # "--agent.model.name=claude-3-7-sonnet-latest",
         # Increase/decrease this to change speed and cost of the agent
-        "--agent.model.per_instance_cost_limit=3.00",  
+        # "--agent.model.per_instance_cost_limit=3.00",  
+        "--config=SWE-agent/config/competitive_retry.yaml",
         f"--env.repo.path={repo_path}",
         f"--problem_statement.path={problem_file}",
         f"--output_dir={out_dir}"
