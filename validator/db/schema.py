@@ -13,7 +13,8 @@ def get_schema_v1() -> List[str]:
             challenge_id TEXT PRIMARY KEY,  -- UUID for the challenge
             type TEXT NOT NULL CHECK(type IN ('codegen', 'regression')),
             validator_hotkey TEXT NOT NULL,
-            created_at TIMESTAMP NOT NULL
+            created_at TIMESTAMP NOT NULL,
+            log_created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         """,
 
@@ -26,6 +27,7 @@ def get_schema_v1() -> List[str]:
             repository_url TEXT NOT NULL,     -- URL of the repository
             commit_hash TEXT,                 -- Optional commit hash for codegen challenges
             context_file_paths TEXT NOT NULL, -- JSON array of file paths relative to repo root
+            log_created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (challenge_id) REFERENCES challenges(challenge_id) ON DELETE CASCADE
         )
         """,
@@ -38,6 +40,7 @@ def get_schema_v1() -> List[str]:
             repository_url TEXT NOT NULL,
             commit_hash TEXT,                 -- Optional commit hash for regression challenges
             context_file_paths TEXT NOT NULL, -- JSON array of file paths relative to repo root
+            log_created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (challenge_id) REFERENCES challenges(challenge_id) ON DELETE CASCADE
         )
         """,
@@ -53,6 +56,7 @@ def get_schema_v1() -> List[str]:
             sent_at TIMESTAMP,
             completed_at TIMESTAMP,
             status TEXT CHECK(status IN ('assigned', 'sent', 'completed', 'failed')) DEFAULT 'assigned',
+            log_created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (challenge_id) REFERENCES challenges(challenge_id),
             UNIQUE(challenge_id, miner_hotkey)
         )
@@ -71,6 +75,7 @@ def get_schema_v1() -> List[str]:
             evaluated BOOLEAN DEFAULT FALSE,
             score FLOAT,
             evaluated_at TIMESTAMP,
+            log_created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (challenge_id) REFERENCES challenges(challenge_id),
             FOREIGN KEY (challenge_id, miner_hotkey) REFERENCES challenge_assignments(challenge_id, miner_hotkey)
         )
@@ -82,6 +87,7 @@ def get_schema_v1() -> List[str]:
             response_id INTEGER PRIMARY KEY,
             challenge_id TEXT NOT NULL,
             response_patch TEXT NOT NULL,
+            log_created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (response_id) REFERENCES responses(response_id) ON DELETE CASCADE,
             FOREIGN KEY (challenge_id) REFERENCES codegen_challenges(challenge_id) ON DELETE CASCADE
         )
@@ -93,6 +99,7 @@ def get_schema_v1() -> List[str]:
             response_id INTEGER PRIMARY KEY,
             challenge_id TEXT NOT NULL,
             response_patch TEXT NOT NULL,
+            log_created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (response_id) REFERENCES responses(response_id) ON DELETE CASCADE,
             FOREIGN KEY (challenge_id) REFERENCES regression_challenges(challenge_id) ON DELETE CASCADE
         )
@@ -107,7 +114,8 @@ def get_schema_v1() -> List[str]:
             checked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             is_available BOOLEAN NOT NULL,
             response_time_ms FLOAT NOT NULL,
-            error TEXT
+            error TEXT,
+            log_created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
         """,
     ]
