@@ -8,13 +8,13 @@ import sys
 
 from fiber import Keypair
 
-from api.src.utils.config import PERMISSABLE_PACKAGES, AGENT_RATE_LIMIT_SECONDS
-from api.src.utils.auth import verify_request
-from api.src.utils.models import Agent, AgentVersion
-from api.src.db.operations import DatabaseManager
-from api.src.socket.server import WebSocketServer
-from api.src.db.s3 import S3Manager
-from api.src.utils.nodes import get_subnet_hotkeys
+from src.utils.config import PERMISSABLE_PACKAGES, AGENT_RATE_LIMIT_SECONDS
+from src.utils.auth import verify_request
+from src.utils.models import Agent, AgentVersion
+from src.db.operations import DatabaseManager
+from src.socket.server import WebSocketServer
+from src.db.s3 import S3Manager
+from src.utils.nodes import get_subnet_hotkeys
 
 logger = logging.getLogger(__name__)
 

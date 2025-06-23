@@ -2,7 +2,7 @@ import os
 from typing import Optional, List
 import psycopg2
 from dotenv import load_dotenv
-from api.src.utils.models import Agent, AgentVersion, EvaluationRun, Evaluation, AgentSummary, Execution
+from src.utils.models import Agent, AgentVersion, EvaluationRun, Evaluation, AgentSummary, Execution
 from logging import getLogger
 
 load_dotenv()
