@@ -1,10 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from api.src.utils.auth import verify_request
-from api.src.utils.chutes import ChutesManager
-from api.src.utils.logging import get_logger
-from api.src.db.operations import DatabaseManager
-from api.src.utils.models import EmbeddingRequest, InferenceRequest
+from src.utils.auth import verify_request
+from src.utils.chutes import ChutesManager
+from src.utils.logging import get_logger
+from src.db.operations import DatabaseManager
+from src.utils.models import EmbeddingRequest, InferenceRequest
 
 db = DatabaseManager()
 

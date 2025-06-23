@@ -25,7 +25,7 @@ class WebSocketServer:
             self.clients: dict = {}
             self.server = None
             self._initialized = True
-            asyncio.create_task(self.start())
+            # Don't start the server automatically - it will be started when needed
     
     @classmethod
     def get_instance(cls) -> 'WebSocketServer':

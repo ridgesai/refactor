@@ -6,8 +6,8 @@ import json
 from datetime import datetime, timedelta
 import asyncio
 
-from api.src.utils.logging import get_logger
-from api.src.utils.config import MODEL_PRICE_PER_1M_TOKENS
+from src.utils.logging import get_logger
+from src.utils.config import MODEL_PRICE_PER_1M_TOKENS
 
 logger = get_logger(__name__)
 
@@ -19,7 +19,7 @@ class ChutesManager:
         self.pricing = MODEL_PRICE_PER_1M_TOKENS
         self.costs_data = {}
         self.cleanup_task = None
-        self.start_cleanup_task()
+        # Don't start the cleanup task automatically - it will be started when needed
 
     def start_cleanup_task(self):
         """Start the periodic cleanup task to remove cost data that is older than 15 minutes. This is run every 5 minutes."""
