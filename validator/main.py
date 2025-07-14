@@ -7,7 +7,7 @@ import shutil
 from dotenv import load_dotenv
 
 from validator.utils.logging import get_logger
-load_dotenv("validator/.env")
+load_dotenv()
 
 # Internal package imports
 from validator.socket.websocket_app import WebsocketApp

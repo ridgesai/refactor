@@ -1,6 +1,6 @@
 # TODO: cleanup how we set this all up
 from dotenv import load_dotenv
-load_dotenv("api/.env")
+load_dotenv()
 
 import os
 from datetime import timedelta

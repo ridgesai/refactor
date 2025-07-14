@@ -1,5 +1,5 @@
 from dotenv import load_dotenv
-load_dotenv("proxy/.env")
+load_dotenv()
 
 import os
 import logging
